@@ -1,11 +1,8 @@
--- Volleyball Legends | Obfuscation & Anti-Detect Layer
 local P,L,U,R,C=game:GetService("Players"),game:GetService("Players").LocalPlayer,game:GetService("UserInputService"),game:GetService("RunService"),workspace.CurrentCamera
 local RS=game:GetService("ReplicatedStorage")
-local rnd=Random.new()
-local function rStr()local t={}for i=1,rnd:NextInteger(5,10)do t[i]=string.char(rnd:NextInteger(97,122))end return table.concat(t)end
-local function sWait()task.wait(rnd:NextNumber(0.3,0.8))end -- Jeda acak biar ga ketahuan pola spam
+local function rStr()local t={}for i=1,math.random(5,10)do t[i]=string.char(math.random(97,122))end return table.concat(t)end
+local function sWait()local t=tick()+math.random(30,80)/100 while tick()<t do end end
 
--- UI (Nama di-randomize)
 local G=Instance.new("ScreenGui",gethui and gethui() or L:WaitForChild("PlayerGui"))
 G.Name=rStr() G.ResetOnSpawn=false
 local F=Instance.new("Frame",G)F.Size=UDim2.fromOffset(170,230)F.Position=UDim2.new(0,10,0,50)F.BackgroundColor3=Color3.fromRGB(16,16,18)F.BorderSizePixel=0 F.Active=true F.Draggable=true Instance.new("UICorner",F).CornerRadius=UDim.new(0,5)
@@ -16,7 +13,6 @@ local S=Instance.new("ScrollingFrame",F)S.Size=UDim2.new(1,-6,1,-6)S.Position=UD
 local function B(t,c)local b=Instance.new("TextButton",S)b.Size=UDim2.new(1,0,0,20)b.BackgroundColor3=Color3.fromRGB(28,28,32)b.BorderSizePixel=0 b.Text=t b.TextColor3=Color3.fromRGB(210,210,215)b.Font=Enum.Font.Code b.TextSize=10 b.MouseButton1Click:Connect(c)return b end
 local function T(t,cb)local b=Instance.new("TextButton",S)b.Size=UDim2.new(1,0,0,20)b.BackgroundColor3=Color3.fromRGB(28,28,32)b.BorderSizePixel=0 b.Text=t..": OFF"b.TextColor3=Color3.fromRGB(210,210,215)b.Font=Enum.Font.Code b.TextSize=10 local on=false b.MouseButton1Click:Connect(function()on=not on b.Text=t..": "..(on and "ON" or "OFF")cb(on)end)return b end
 
--- State
 local hbOn,eOn,ultOn=false,false,false
 local espTable={}
 local origSize=nil
@@ -60,7 +56,6 @@ local function tE(v)
 end
 P.PlayerAdded:Connect(function(p)if eOn and p~=L then tE(true)end end)
 
--- REMOTE SPAMMER (Anti-Ban: Pcall + Jeda Acak)
 local function safeFire(obj,method,...)
 	if not obj then return end
 	local ok=pcall(function() obj[method](obj,...) end)
