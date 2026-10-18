@@ -1,26 +1,20 @@
 local P=game:GetService("Players")
 local L=P.LocalPlayer
+local U=game:GetService("UserInputService")
 local R=game:GetService("RunService")
 local RS=game:GetService("ReplicatedStorage")
 
 local function rStr()
 	local t={}
-	for i=1,math.random(5,10) do
-		t[i]=string.char(math.random(97,122))
-	end
+	for i=1,math.random(5,10) do t[i]=string.char(math.random(97,122)) end
 	return table.concat(t)
 end
-
-local function sWait()
-	local t=tick()+(math.random(30,80)/100)
-	while tick()<t do end
-end
+local function sWait() local t=tick()+(math.random(40,90)/100) while tick()<t do end end
 
 local G=Instance.new("ScreenGui")
 G.Name=rStr()
 G.ResetOnSpawn=false
 G.Parent=L:WaitForChild("PlayerGui")
-
 local F=Instance.new("Frame",G)
 F.Size=UDim2.fromOffset(160,200)
 F.Position=UDim2.new(0,10,0,50)
@@ -64,8 +58,9 @@ local function Tgl(t,c)
 	end)
 end
 
-local hb,esp,ult=false,false,false
+local hb,ballEsp=false,false
 local oriBall=nil
+local ballHighlight=nil
 
 local function getBall()
 	for _,v in ipairs(workspace:GetDescendants())do
@@ -73,75 +68,92 @@ local function getBall()
 	end
 end
 
+-- Hitbox Gede + Auto Spike
 local function toggleHitbox(on)
 	hb=on
 	local b=getBall()
 	if b then
 		if on then
 			if not oriBall then oriBall=b.Size end
-			b.Size=oriBall*3
+			b.Size=oriBall*Vector3.new(5,5,5)
 		elseif oriBall then
 			b.Size=oriBall
 		end
 	end
 end
 R.Heartbeat:Connect(function()
-	if hb then local b=getBall() if b and oriBall then b.Size=oriBall*3 end end
+	if hb then 
+		local b=getBall()
+		if b and oriBall then 
+			b.Size=oriBall*Vector3.new(5,5,5)
+			-- Auto Spike kalau bola nempel
+			local hrp=L.Character and L.Character:FindFirstChild("HumanoidRootPart")
+			if hrp and (hrp.Position - b.Position).Magnitude < 15 then
+				pcall(function() b.CFrame = hrp.CFrame end)
+			end
+		end 
+	end
 end)
 
-local function toggleESP(on)
-	esp=on
-	for _,p in ipairs(P:GetPlayers())do
-		if p~=L then
-			local char=p.Character
-			if char then
-				local hrp=char:FindFirstChild("HumanoidRootPart")
-				if hrp then
-					if on and not hrp:FindFirstChild("ESPTag") then
-						local bg=Instance.new("BillboardGui",hrp)
-						bg.Name=rStr()
-						bg.Size=UDim2.new(0,50,0,50)
-						bg.AlwaysOnTop=true
-						local frame=Instance.new("Frame",bg)
-						frame.Size=UDim2.new(1,0,1,0)
-						frame.BackgroundColor3=Color3.fromRGB(255,0,0)
-						frame.BackgroundTransparency=0.5
-					elseif not on then
-						local old=hrp:FindFirstChild("ESPTag")
-						if old then old:Destroy()end
-						for _,g in ipairs(hrp:GetChildren())do
-							if g:IsA("BillboardGui")and g.Name~="ESPTag" then g:Destroy()end
-						end
-					end
-				end
+-- ESP Khusus Bola
+local function toggleBallESP(on)
+	ballEsp=on
+	local b=getBall()
+	if b then
+		if on and not ballHighlight then
+			ballHighlight=Instance.new("Highlight")
+			ballHighlight.Name=rStr()
+			ballHighlight.FillColor=Color3.fromRGB(255,255,0)
+			ballHighlight.OutlineColor=Color3.fromRGB(255,0,0)
+			ballHighlight.FillTransparency=0.2
+			ballHighlight.Adornee=b
+			ballHighlight.Parent=G
+		elseif not on and ballHighlight then
+			ballHighlight:Destroy()
+			ballHighlight=nil
+		end
+	end
+end
+R.Heartbeat:Connect(function()
+	if ballEsp then
+		local b=getBall()
+		if b then
+			if not ballHighlight then
+				ballHighlight=Instance.new("Highlight")
+				ballHighlight.Name=rStr()
+				ballHighlight.FillColor=Color3.fromRGB(255,255,0)
+				ballHighlight.OutlineColor=Color3.fromRGB(255,0,0)
+				ballHighlight.FillTransparency=0.2
+				ballHighlight.Parent=G
 			end
+			ballHighlight.Adornee=b
+		elseif ballHighlight then
+			ballHighlight:Destroy()
+			ballHighlight=nil
+		end
+	end
+end)
+
+-- Ultimate Per Klik
+local function doUlt()
+	for _,v in ipairs(L:GetDescendants())do
+		if string.find(v.Name:lower(),"ult") or string.find(v.Name:lower(),"charge") then
+			pcall(function() v.Value=100 end)
 		end
 	end
 end
 
-local function toggleUlt(on)
-	ult=on
-	if on then
-		spawn(function()
-			while ult do
-				for _,v in ipairs(L:GetDescendants())do
-					if string.find(v.Name:lower(),"ult") or string.find(v.Name:lower(),"charge") then
-						pcall(function() v.Value=100 end)
-					end
-				end
-				local vu=game:GetService("VirtualUser")
-				pcall(function() vu:CaptureController() vu:ClickButton2(Vector2.new()) end) -- Anti-AFK
-				wait(math.random(10,15)/10)
-			end
-		end)
-	end
-end
-
+-- Nyedot Reward / Exp (Spam Remote)
 local function doYen()
 	sWait()
 	for _,v in ipairs(RS:GetDescendants())do
-		if (v:IsA("RemoteEvent")or v:IsA("RemoteFunction"))and (string.find(v.Name:lower(),"yen")or string.find(v.Name:lower(),"money")or string.find(v.Name:lower(),"reward"))then
-			if v:IsA("RemoteEvent")then pcall(function() v:FireServer() end)else pcall(function() v:InvokeServer() end)end
+		if (v:IsA("RemoteEvent")or v:IsA("RemoteFunction"))and (string.find(v.Name:lower(),"yen")or string.find(v.Name:lower(),"money")or string.find(v.Name:lower(),"reward")or string.find(v.Name:lower(),"cash"))then
+			if v:IsA("RemoteEvent")then 
+				pcall(function() v:FireServer() end)
+				pcall(function() v:FireServer("Reward") end)
+			else 
+				pcall(function() v:InvokeServer() end)
+			end
 		end
 	end
 end
@@ -149,14 +161,19 @@ end
 local function doExp()
 	sWait()
 	for _,v in ipairs(RS:GetDescendants())do
-		if (v:IsA("RemoteEvent")or v:IsA("RemoteFunction"))and (string.find(v.Name:lower(),"exp")or string.find(v.Name:lower(),"level"))then
-			if v:IsA("RemoteEvent")then pcall(function() v:FireServer(60) end)else pcall(function() v:InvokeServer(60) end)end
+		if (v:IsA("RemoteEvent")or v:IsA("RemoteFunction"))and (string.find(v.Name:lower(),"exp")or string.find(v.Name:lower(),"level")or string.find(v.Name:lower(),"xp"))then
+			if v:IsA("RemoteEvent")then 
+				pcall(function() v:FireServer(60) end)
+				pcall(function() v:FireServer("Add", 60) end)
+			else 
+				pcall(function() v:InvokeServer(60) end)
+			end
 		end
 	end
 end
 
-Tgl("Hitbox",toggleHitbox)
-Tgl("ESP",toggleESP)
-Tgl("Ultimate",toggleUlt)
-Btn("Yen +",function() spawn(doYen) end)
-Btn("Exp +60",function() spawn(doExp) end)
+Tgl("Hitbox + AutoSpike",toggleHitbox)
+Tgl("ESP Bola",toggleBallESP)
+Btn("Ulti (Klik)",doUlt)
+Btn("Sedot Yen",function() spawn(doYen) end)
+Btn("Sedot Exp",function() spawn(doExp) end)
