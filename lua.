@@ -1,0 +1,13 @@
+local URL = "https://raw.githubusercontent.com/Ryu-del-sudo/JAKI-GANTENG/main/main.lua"
+local ok, src = pcall(function() return game:HttpGet(URL) end)
+if not ok or not src or #src < 100 then
+    warn("[loader] fetch failed: " .. tostring(src))
+    return
+end
+local fn, err = loadstring(src)
+if not fn then
+    warn("[loader] compile: " .. tostring(err))
+    return
+end
+local ran, e = pcall(fn)
+if not ran then warn("[loader] runtime: " .. tostring(e)) end
