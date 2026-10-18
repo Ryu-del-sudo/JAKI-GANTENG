@@ -3,7 +3,6 @@ local L=P.LocalPlayer
 local R=game:GetService("RunService")
 local RS=game:GetService("ReplicatedStorage")
 
--- UI Sederhana
 local G=Instance.new("ScreenGui")
 G.Name="x"
 G.Parent=L:WaitForChild("PlayerGui")
@@ -50,7 +49,6 @@ local function Tgl(t,c)
 	end)
 end
 
--- Fitur
 local hb,esp,ult=false,false,false
 local oriBall=nil
 
@@ -84,17 +82,17 @@ local function toggleESP(on)
 			if char then
 				local hrp=char:FindFirstChild("HumanoidRootPart")
 				if hrp then
-					if on and not hrp:FindFirstChild("ESPBox") then
-						local box=Instance.new("BoxHandleAdornment",hrp)
-						box.Name="ESPBox"
-						box.Size=Vector3.new(4,6,4)
-						box.Adornee=hrp
-						box.AlwaysOnTop=true
-						box.ZIndex=5
-						box.Transparency=0.5
-						box.Color3=Color3.fromRGB(255,0,0)
-					elseif not on and hrp:FindFirstChild("ESPBox") then
-						hrp.ESPBox:Destroy()
+					if on and not hrp:FindFirstChild("ESPTag") then
+						local bg=Instance.new("BillboardGui",hrp)
+						bg.Name="ESPTag"
+						bg.Size=UDim2.new(0,50,0,50)
+						bg.AlwaysOnTop=true
+						local frame=Instance.new("Frame",bg)
+						frame.Size=UDim2.new(1,0,1,0)
+						frame.BackgroundColor3=Color3.fromRGB(255,0,0)
+						frame.BackgroundTransparency=0.5
+					elseif not on and hrp:FindFirstChild("ESPTag") then
+						hrp.ESPTag:Destroy()
 					end
 				end
 			end
@@ -105,37 +103,33 @@ end
 local function toggleUlt(on)
 	ult=on
 	if on then
-		task.spawn(function()
+		spawn(function()
 			while ult do
 				for _,v in ipairs(L:GetDescendants())do
 					if string.find(v.Name:lower(),"ult") or string.find(v.Name:lower(),"charge") then
 						pcall(function() v.Value=100 end)
 					end
 				end
-				task.wait(0.1)
+				wait(0.1)
 			end
 		end)
 	end
 end
 
-local function safeFire(remote,...)
-	pcall(function() remote:FireServer(...) end)
-end
-
 local function doYen()
-	task.wait(math.random(3,8)/10)
+	wait(math.random(3,8)/10)
 	for _,v in ipairs(RS:GetDescendants())do
 		if (v:IsA("RemoteEvent")or v:IsA("RemoteFunction"))and (string.find(v.Name:lower(),"yen")or string.find(v.Name:lower(),"money")or string.find(v.Name:lower(),"reward"))then
-			if v:IsA("RemoteEvent")then safeFire(v)else pcall(function() v:InvokeServer() end)end
+			if v:IsA("RemoteEvent")then pcall(function() v:FireServer() end)else pcall(function() v:InvokeServer() end)end
 		end
 	end
 end
 
 local function doExp()
-	task.wait(math.random(3,8)/10)
+	wait(math.random(3,8)/10)
 	for _,v in ipairs(RS:GetDescendants())do
 		if (v:IsA("RemoteEvent")or v:IsA("RemoteFunction"))and (string.find(v.Name:lower(),"exp")or string.find(v.Name:lower(),"level"))then
-			if v:IsA("RemoteEvent")then safeFire(v,60)else pcall(function() v:InvokeServer(60) end)end
+			if v:IsA("RemoteEvent")then pcall(function() v:FireServer(60) end)else pcall(function() v:InvokeServer(60) end)end
 		end
 	end
 end
@@ -143,5 +137,5 @@ end
 Tgl("Hitbox",toggleHitbox)
 Tgl("ESP",toggleESP)
 Tgl("Ultimate",toggleUlt)
-Btn("Yen +",function() task.spawn(doYen) end)
-Btn("Exp +60",function() task.spawn(doExp) end)
+Btn("Yen +",function() spawn(doYen) end)
+Btn("Exp +60",function() spawn(doExp) end)
