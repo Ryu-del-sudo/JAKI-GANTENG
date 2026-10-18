@@ -1,9 +1,13 @@
--- Volleyball Legends client-side build. Hitbox + ESP visual. Yen/Levelup/Ultimate nembak remote game.
+-- Volleyball Legends | Obfuscation & Anti-Detect Layer
 local P,L,U,R,C=game:GetService("Players"),game:GetService("Players").LocalPlayer,game:GetService("UserInputService"),game:GetService("RunService"),workspace.CurrentCamera
 local RS=game:GetService("ReplicatedStorage")
+local rnd=Random.new()
+local function rStr()local t={}for i=1,rnd:NextInteger(5,10)do t[i]=string.char(rnd:NextInteger(97,122))end return table.concat(t)end
+local function sWait()task.wait(rnd:NextNumber(0.3,0.8))end -- Jeda acak biar ga ketahuan pola spam
 
--- UI
-local G=Instance.new("ScreenGui",gethui and gethui() or L:WaitForChild("PlayerGui"))G.Name="\0"G.ResetOnSpawn=false
+-- UI (Nama di-randomize)
+local G=Instance.new("ScreenGui",gethui and gethui() or L:WaitForChild("PlayerGui"))
+G.Name=rStr() G.ResetOnSpawn=false
 local F=Instance.new("Frame",G)F.Size=UDim2.fromOffset(170,230)F.Position=UDim2.new(0,10,0,50)F.BackgroundColor3=Color3.fromRGB(16,16,18)F.BorderSizePixel=0 F.Active=true F.Draggable=true Instance.new("UICorner",F).CornerRadius=UDim.new(0,5)
 local hideBtn=Instance.new("TextButton",F)hideBtn.Size=UDim2.new(0,18,0,18)hideBtn.Position=UDim2.new(1,-20,0,2)hideBtn.BackgroundColor3=Color3.fromRGB(40,40,45)hideBtn.Text="-"hideBtn.TextColor3=Color3.fromRGB(200,200,205)hideBtn.Font=Enum.Font.Code hideBtn.TextSize=12 hideBtn.BorderSizePixel=0 Instance.new("UICorner",hideBtn).CornerRadius=UDim.new(0,3)
 
@@ -18,7 +22,6 @@ local espTable={}
 local origSize=nil
 local ultConn=nil
 
--- HITBOX: cari bola, scale ukuran
 local function getBall()
 	for _,v in ipairs(workspace:GetDescendants())do
 		if v:IsA("BasePart")and (v.Name:lower():find("ball")or v.Name:lower():find("volley"))then return v end
@@ -40,7 +43,6 @@ R.Heartbeat:Connect(function()
 	if hbOn then local ball=getBall()if ball and origSize then ball.Size=origSize*Vector3.new(3,3,3)end end
 end)
 
--- ESP lawan
 local function tE(v)
 	eOn=v
 	for _,p in ipairs(P:GetPlayers())do
@@ -49,7 +51,7 @@ local function tE(v)
 				local h=Instance.new("Highlight")
 				h.FillColor=Color3.fromRGB(255,50,50)h.OutlineColor=Color3.fromRGB(255,255,255)h.FillTransparency=0.6
 				h.Adornee=p.Character or p.CharacterAdded:Wait()
-				h.Parent=G espTable[p]=h
+				h.Name=rStr() h.Parent=G espTable[p]=h
 			elseif not v and espTable[p]then
 				espTable[p]:Destroy()espTable[p]=nil
 			end
@@ -58,45 +60,44 @@ local function tE(v)
 end
 P.PlayerAdded:Connect(function(p)if eOn and p~=L then tE(true)end end)
 
--- YEN: nembak remote RewardService (struktur umum game ini)
+-- REMOTE SPAMMER (Anti-Ban: Pcall + Jeda Acak)
+local function safeFire(obj,method,...)
+	if not obj then return end
+	local ok=pcall(function() obj[method](obj,...) end)
+	if not ok then pcall(function() obj[method](obj,L,...) end) end
+end
+
 local function addYen()
-	local ok,svc=pcall(function()
-		return RS.Packages._Index["sleitnick_knit@1.7.0"].knit.Services.RewardService
-	end)
+	sWait()
+	local ok,svc=pcall(function() return RS.Packages._Index["sleitnick_knit@1.7.0"].knit.Services.RewardService end)
 	if ok and svc then
-		local rf=svc:FindFirstChild("RF")or svc:FindFirstChildOfClass("RemoteFunction")
-		if rf then pcall(function()rf:InvokeServer()end)end
+		for _,v in ipairs(svc:GetChildren())do
+			if v:IsA("RemoteEvent")then safeFire(v,"FireServer")end
+			if v:IsA("RemoteFunction")then safeFire(v,"InvokeServer")end
+		end
 	end
-	-- fallback: scan remote lain
 	for _,v in ipairs(RS:GetDescendants())do
-		if v:IsA("RemoteFunction")and (v.Name:lower():find("reward")or v.Name:lower():find("yen")or v.Name:lower():find("money"))then
-			pcall(function()v:InvokeServer()end)
+		if (v:IsA("RemoteFunction")or v:IsA("RemoteEvent"))and (v.Name:lower():find("reward")or v.Name:lower():find("yen")or v.Name:lower():find("money"))then
+			if v:IsA("RemoteFunction")then safeFire(v,"InvokeServer")else safeFire(v,"FireServer")end
 		end
 	end
 end
 
--- EASY LEVELUP: exp 60 per klik. Cari remote exp/level.
 local function addExp()
+	sWait()
 	for _,v in ipairs(RS:GetDescendants())do
-		if v:IsA("RemoteEvent")and (v.Name:lower():find("exp")or v.Name:lower():find("level")or v.Name:lower():find("xp"))then
-			pcall(function()v:FireServer(60)end)
-		end
-		if v:IsA("RemoteFunction")and (v.Name:lower():find("exp")or v.Name:lower():find("level")or v.Name:lower():find("xp"))then
-			pcall(function()v:InvokeServer(60)end)
+		if (v:IsA("RemoteEvent")or v:IsA("RemoteFunction"))and (v.Name:lower():find("exp")or v.Name:lower():find("level")or v.Name:lower():find("xp"))then
+			if v:IsA("RemoteEvent")then safeFire(v,"FireServer",60)else safeFire(v,"InvokeServer",60)end
 		end
 	end
 end
 
--- INFINITY ULTIMATE: isi gauge ability tiap frame ke 100
 local function setUlt(v)
 	ultOn=v
 	if v then
 		ultConn=R.Heartbeat:Connect(function()
 			for _,v2 in ipairs(L:GetDescendants())do
-				if v2:IsA("NumberValue")and (v2.Name:lower():find("ult")or v2.Name:lower():find("ability")or v2.Name:lower():find("charge")or v2.Name:lower():find("gauge"))then
-					pcall(function()v2.Value=100 end)
-				end
-				if v2:IsA("IntValue")and (v2.Name:lower():find("ult")or v2.Name:lower():find("ability")or v2.Name:lower():find("charge")or v2.Name:lower():find("gauge"))then
+				if (v2:IsA("NumberValue")or v2:IsA("IntValue"))and (v2.Name:lower():find("ult")or v2.Name:lower():find("ability")or v2.Name:lower():find("charge")or v2.Name:lower():find("gauge"))then
 					pcall(function()v2.Value=100 end)
 				end
 			end
@@ -106,14 +107,12 @@ local function setUlt(v)
 	end
 end
 
--- Tombol
 T("Hitbox", setHitbox)
 T("ESP", tE)
 T("Ultimate", setUlt)
-B("Yen +", addYen)
-B("Exp +60", addExp)
+B("Yen +", function() task.spawn(addYen) end)
+B("Exp +60", function() task.spawn(addExp) end)
 
--- Hide
 local hidden=false
 hideBtn.MouseButton1Click:Connect(function()
 	hidden=not hidden
