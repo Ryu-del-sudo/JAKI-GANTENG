@@ -1,6 +1,5 @@
 local P=game:GetService("Players")
 local L=P.LocalPlayer
-local U=game:GetService("UserInputService")
 local R=game:GetService("RunService")
 local RS=game:GetService("ReplicatedStorage")
 
@@ -9,14 +8,13 @@ local function rStr()
 	for i=1,math.random(5,10) do t[i]=string.char(math.random(97,122)) end
 	return table.concat(t)
 end
-local function sWait() local t=tick()+(math.random(40,90)/100) while tick()<t do end end
 
 local G=Instance.new("ScreenGui")
 G.Name=rStr()
 G.ResetOnSpawn=false
 G.Parent=L:WaitForChild("PlayerGui")
 local F=Instance.new("Frame",G)
-F.Size=UDim2.fromOffset(160,200)
+F.Size=UDim2.fromOffset(160,140)
 F.Position=UDim2.new(0,10,0,50)
 F.BackgroundColor3=Color3.fromRGB(20,20,20)
 F.Active=true
@@ -59,53 +57,58 @@ local function Tgl(t,c)
 end
 
 local hb,ballEsp=false,false
-local oriBall=nil
+local origBall=nil
 local ballHighlight=nil
 
+-- Fungsi nyari bola yang lebih luas (nyari nama yang ada 'ball' atau 'volley')
 local function getBall()
 	for _,v in ipairs(workspace:GetDescendants())do
-		if v:IsA("BasePart")and string.find(v.Name:lower(),"ball")then return v end
+		if v:IsA("BasePart") and (string.find(v.Name:lower(),"ball") or string.find(v.Name:lower(),"volley")) then
+			return v
+		end
 	end
 end
 
--- Hitbox Gede + Auto Spike
+-- 1. HITBOX & AUTO SPIKE
+-- Ukuran bola dibesarin 8x lipat (biar pasti kena), dan magnet bola ke kita pas deket
 local function toggleHitbox(on)
 	hb=on
 	local b=getBall()
 	if b then
 		if on then
-			if not oriBall then oriBall=b.Size end
-			b.Size=oriBall*Vector3.new(5,5,5)
-		elseif oriBall then
-			b.Size=oriBall
+			if not origBall then origBall=b.Size end
+			b.Size=origBall*Vector3.new(8,8,8)
+		elseif origBall then
+			b.Size=origBall
 		end
 	end
 end
+
 R.Heartbeat:Connect(function()
 	if hb then 
 		local b=getBall()
-		if b and oriBall then 
-			b.Size=oriBall*Vector3.new(5,5,5)
-			-- Auto Spike kalau bola nempel
+		if b and origBall then 
+			b.Size=origBall*Vector3.new(8,8,8)
 			local hrp=L.Character and L.Character:FindFirstChild("HumanoidRootPart")
-			if hrp and (hrp.Position - b.Position).Magnitude < 15 then
+			-- Kalau jarak kita ke bola kurang dari 25 stud, tarik bolanya ke dada kita
+			if hrp and (hrp.Position - b.Position).Magnitude < 25 then
 				pcall(function() b.CFrame = hrp.CFrame end)
 			end
 		end 
 	end
 end)
 
--- ESP Khusus Bola
+-- 2. ESP BOLA
 local function toggleBallESP(on)
 	ballEsp=on
 	local b=getBall()
 	if b then
 		if on and not ballHighlight then
 			ballHighlight=Instance.new("Highlight")
-			ballHighlight.Name=rStr()
+			ballHighlight.Name="B_ESP"
 			ballHighlight.FillColor=Color3.fromRGB(255,255,0)
 			ballHighlight.OutlineColor=Color3.fromRGB(255,0,0)
-			ballHighlight.FillTransparency=0.2
+			ballHighlight.FillTransparency=0.3
 			ballHighlight.Adornee=b
 			ballHighlight.Parent=G
 		elseif not on and ballHighlight then
@@ -114,16 +117,17 @@ local function toggleBallESP(on)
 		end
 	end
 end
+
 R.Heartbeat:Connect(function()
 	if ballEsp then
 		local b=getBall()
 		if b then
 			if not ballHighlight then
 				ballHighlight=Instance.new("Highlight")
-				ballHighlight.Name=rStr()
+				ballHighlight.Name="B_ESP"
 				ballHighlight.FillColor=Color3.fromRGB(255,255,0)
 				ballHighlight.OutlineColor=Color3.fromRGB(255,0,0)
-				ballHighlight.FillTransparency=0.2
+				ballHighlight.FillTransparency=0.3
 				ballHighlight.Parent=G
 			end
 			ballHighlight.Adornee=b
@@ -134,46 +138,36 @@ R.Heartbeat:Connect(function()
 	end
 end)
 
--- Ultimate Per Klik
+-- 3. ULTIMATE (Bypass via Knit Framework Remote)
+-- Game ini pake framework Knit. Kita tembak remote AbilityService-nya.
 local function doUlt()
+	local success = false
+	
+	-- Cara 1: Cari Value Ult
 	for _,v in ipairs(L:GetDescendants())do
-		if string.find(v.Name:lower(),"ult") or string.find(v.Name:lower(),"charge") then
-			pcall(function() v.Value=100 end)
+		if string.find(v.Name:lower(),"ult") or string.find(v.Name:lower(),"ability") or string.find(v.Name:lower(),"charge") then
+			pcall(function() 
+				v.Value = v:IsA("NumberValue") and 100 or v.Value
+				if v:IsA("BoolValue") then v.Value = true end
+			end)
 		end
 	end
-end
-
--- Nyedot Reward / Exp (Spam Remote)
-local function doYen()
-	sWait()
-	for _,v in ipairs(RS:GetDescendants())do
-		if (v:IsA("RemoteEvent")or v:IsA("RemoteFunction"))and (string.find(v.Name:lower(),"yen")or string.find(v.Name:lower(),"money")or string.find(v.Name:lower(),"reward")or string.find(v.Name:lower(),"cash"))then
-			if v:IsA("RemoteEvent")then 
-				pcall(function() v:FireServer() end)
-				pcall(function() v:FireServer("Reward") end)
-			else 
-				pcall(function() v:InvokeServer() end)
+	
+	-- Cara 2: Tembak Remote Framework Knit
+	pcall(function()
+		local knit = RS:FindFirstChild("Packages") 
+		if knit then
+			for _,v in ipairs(RS:GetDescendants())do
+				if v:IsA("RemoteEvent") and (string.find(v.Name:lower(),"ult") or string.find(v.Name:lower(),"ability")) then
+					v:FireServer("Use")
+					v:FireServer()
+					success = true
+				end
 			end
 		end
-	end
-end
-
-local function doExp()
-	sWait()
-	for _,v in ipairs(RS:GetDescendants())do
-		if (v:IsA("RemoteEvent")or v:IsA("RemoteFunction"))and (string.find(v.Name:lower(),"exp")or string.find(v.Name:lower(),"level")or string.find(v.Name:lower(),"xp"))then
-			if v:IsA("RemoteEvent")then 
-				pcall(function() v:FireServer(60) end)
-				pcall(function() v:FireServer("Add", 60) end)
-			else 
-				pcall(function() v:InvokeServer(60) end)
-			end
-		end
-	end
+	end)
 end
 
 Tgl("Hitbox + AutoSpike",toggleHitbox)
 Tgl("ESP Bola",toggleBallESP)
 Btn("Ulti (Klik)",doUlt)
-Btn("Sedot Yen",function() spawn(doYen) end)
-Btn("Sedot Exp",function() spawn(doExp) end)
