@@ -3,9 +3,24 @@ local L=P.LocalPlayer
 local R=game:GetService("RunService")
 local RS=game:GetService("ReplicatedStorage")
 
+local function rStr()
+	local t={}
+	for i=1,math.random(5,10) do
+		t[i]=string.char(math.random(97,122))
+	end
+	return table.concat(t)
+end
+
+local function sWait()
+	local t=tick()+(math.random(30,80)/100)
+	while tick()<t do end
+end
+
 local G=Instance.new("ScreenGui")
-G.Name="x"
+G.Name=rStr()
+G.ResetOnSpawn=false
 G.Parent=L:WaitForChild("PlayerGui")
+
 local F=Instance.new("Frame",G)
 F.Size=UDim2.fromOffset(160,200)
 F.Position=UDim2.new(0,10,0,50)
@@ -84,15 +99,19 @@ local function toggleESP(on)
 				if hrp then
 					if on and not hrp:FindFirstChild("ESPTag") then
 						local bg=Instance.new("BillboardGui",hrp)
-						bg.Name="ESPTag"
+						bg.Name=rStr()
 						bg.Size=UDim2.new(0,50,0,50)
 						bg.AlwaysOnTop=true
 						local frame=Instance.new("Frame",bg)
 						frame.Size=UDim2.new(1,0,1,0)
 						frame.BackgroundColor3=Color3.fromRGB(255,0,0)
 						frame.BackgroundTransparency=0.5
-					elseif not on and hrp:FindFirstChild("ESPTag") then
-						hrp.ESPTag:Destroy()
+					elseif not on then
+						local old=hrp:FindFirstChild("ESPTag")
+						if old then old:Destroy()end
+						for _,g in ipairs(hrp:GetChildren())do
+							if g:IsA("BillboardGui")and g.Name~="ESPTag" then g:Destroy()end
+						end
 					end
 				end
 			end
@@ -110,14 +129,16 @@ local function toggleUlt(on)
 						pcall(function() v.Value=100 end)
 					end
 				end
-				wait(0.1)
+				local vu=game:GetService("VirtualUser")
+				pcall(function() vu:CaptureController() vu:ClickButton2(Vector2.new()) end) -- Anti-AFK
+				wait(math.random(10,15)/10)
 			end
 		end)
 	end
 end
 
 local function doYen()
-	wait(math.random(3,8)/10)
+	sWait()
 	for _,v in ipairs(RS:GetDescendants())do
 		if (v:IsA("RemoteEvent")or v:IsA("RemoteFunction"))and (string.find(v.Name:lower(),"yen")or string.find(v.Name:lower(),"money")or string.find(v.Name:lower(),"reward"))then
 			if v:IsA("RemoteEvent")then pcall(function() v:FireServer() end)else pcall(function() v:InvokeServer() end)end
@@ -126,7 +147,7 @@ local function doYen()
 end
 
 local function doExp()
-	wait(math.random(3,8)/10)
+	sWait()
 	for _,v in ipairs(RS:GetDescendants())do
 		if (v:IsA("RemoteEvent")or v:IsA("RemoteFunction"))and (string.find(v.Name:lower(),"exp")or string.find(v.Name:lower(),"level"))then
 			if v:IsA("RemoteEvent")then pcall(function() v:FireServer(60) end)else pcall(function() v:InvokeServer(60) end)end
