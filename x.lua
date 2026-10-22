@@ -1,87 +1,35 @@
--- language: Lua, file: volleyball_engine.lua, target: Roblox Client / Exploit Executor
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local RootPart = Character:WaitForChild("HumanoidRootPart")
 
-local LP = Players.LocalPlayer
-local Character = LP.Character or LP.CharacterAdded:Wait()
-local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local HIT_DISTANCE = 12
+local PREDICTION_FACTOR = 0.15
 
-LP.CharacterAdded:Connect(function(char)
-    Character = char
-    HumanoidRootPart = char:WaitForChild("HumanoidRootPart")
-end)
-
-print("=== VOLLEYBALL LEGENDS OPTIMIZED ENGINE LOADED ===")
-
--- 1. Caching exact RemoteEvents for volleyball action handling
-local cachedRemotes = {}
-for _, descendant in ipairs(ReplicatedStorage:GetDescendants()) do
-    if descendant:IsA("RemoteEvent") then
-        local nameLower = descendant.Name:lower()
-        if nameLower:find("spike") or nameLower:find("hit") or nameLower:find("volley") or nameLower:find("touch") or nameLower:find("action") then
-            table.insert(cachedRemotes, descendant)
-        end
-    end
-end
-
--- Fallback if specific remotes are obfuscated or named differently
-if #cachedRemotes == 0 then
-    for _, descendant in ipairs(ReplicatedStorage:GetDescendants()) do
-        if descendant:IsA("RemoteEvent") then
-            table.insert(cachedRemotes, descendant)
-        end
-    end
-end
-
-print("Cached actionable remotes:", #cachedRemotes)
-
--- 2. Optimized Ball Snapper with Prediction & Assembly Stabilization
-local function locateAndAttractBall()
-    if not HumanoidRootPart or not HumanoidRootPart.Parent then return end
-    
+local function getClosestBall()
+    local closest, minDst = nil, math.huge
     for _, obj in ipairs(workspace:GetChildren()) do
-        if obj:IsA("BasePart") then
-            local name = obj.Name:lower()
-            -- Identify standard volleyball instances by naming or physical characteristics
-            if name == "ball" or name == "volleyball" or name == "nil" or (obj.Shape == Enum.PartType.Ball and obj.Size.Magnitude < 10) then
-                pcall(function()
-                    -- Zero out velocity to prevent physics glitching, snap smoothly in front of character
-                    obj.AssemblyLinearVelocity = Vector3.zero
-                    obj.AssemblyAngularVelocity = Vector3.zero
-                    obj.Velocity = Vector3.zero
-                    
-                    -- Position right in front of character's hit zone (offset forward by 3 studs, height offset 0)
-                    local targetCFrame = HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
-                    obj.CFrame = targetCFrame
-                end)
+        if obj:IsA("BasePart") and (obj.Name:lower():find("ball") or obj:FindFirstChild("TouchInterest")) then
+            local dst = (obj.Position - RootPart.Position).Magnitude
+            if dst < minDst then
+                minDst = dst
+                closest = obj
             end
         end
     end
+    return closest
 end
 
--- 3. Controlled High-Frequency Trigger Loop
-local triggerToggle = true
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.Equals then
-        triggerToggle = not triggerToggle
-        print("Engine Status:", triggerToggle and "ACTIVE" or "PAUSED")
-    end
-end)
+RunService.RenderStepped:Connect(function()
+    local ball = getClosestBall()
+    if not ball then return end
 
-RunService.Heartbeat:Connect(function()
-    if not triggerToggle then return end
-    
-    locateAndAttractBall()
-    
-    -- Fire cached action remotes with standard sport payload arguments
-    for _, remote in ipairs(cachedRemotes) do
-        pcall(function()
-            remote:FireServer()
-            remote:FireServer("Spike")
-            remote:FireServer("Hit")
-            remote:FireServer(HumanoidRootPart.Position)
-        end)
+    local predictedPos = ball.Position + (ball.Velocity * PREDICTION_FACTOR)
+    local distance = (predictedPos - RootPart.Position).Magnitude
+
+    if distance <= HIT_DISTANCE then
+        RootPart.CFrame = CFrame.new(RootPart.Position, Vector3.new(predictedPos.X, RootPart.Position.Y, predictedPos.Z))
+        mouse1click()
     end
 end)
